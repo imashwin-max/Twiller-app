@@ -233,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (res.data) {
       setUser(res.data);
       localStorage.setItem("twitter-user", JSON.stringify(res.data));
-      await saveLoginHistory(firebaseUser.email);
+      await saveLoginHistory(firebaseUser.email ?? "")
     }
     setIsLoading(false);
   };
