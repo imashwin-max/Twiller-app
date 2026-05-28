@@ -1,0 +1,16 @@
+mongodb+srv://system:NFkK4zVTmLKOClyh@cluster0.efnbmq4.mongodb.net/twiller?appName=Cluster0
+
+
+NFkK4zVTmLKOClyh
+
+
+
+app password: snse fuhc llet xuzc
+
+
+
+BACKEND URL:https://twiller-backend-uymi.onrender.com
+
+
+
+versal: https://twiller-app.vercel.app/
