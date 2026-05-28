@@ -13,4 +13,5 @@ BACKEND URL:https://twiller-backend-uymi.onrender.com
 
 
 
-versal: https://twiller-app.vercel.app/
+versal: https://twiller-app.vercel.app
+

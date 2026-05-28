@@ -1,28 +1,19 @@
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-// keep your credentials 
 const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: "",
+  apiKey: "AIzaSyAlA3cY46mmnexaRpXMwocKuEoIspTgsHo",
+  authDomain: "twiller-project-ba42c.firebaseapp.com",
+  projectId: "twiller-project-ba42c",
+  storageBucket: "twiller-project-ba42c.firebasestorage.app",
+  messagingSenderId: "822952840753",
+  appId: "1:822952840753:web:3db8bb9a74421a4e2c0f10"
 };
 
-// Check if credentials are provided
-export const isMockAuth = !firebaseConfig.apiKey;
+export const isMockAuth = false;
 
-let app = null;
-let auth: any = {
-  currentUser: null,
-};
-
-if (!isMockAuth) {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  auth = getAuth(app);
-}
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
 
 export { auth };
 export default app;
