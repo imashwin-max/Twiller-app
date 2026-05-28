@@ -13,7 +13,7 @@ import fs from "fs";
 dotenv.config();
 const app = express();
 app.use(cors({
-  origin: ["https://twiller-app.vercel.app", "http://localhost:3000"],
+  origin: ["https://twiller-app-main.vercel.app", "https://twiller-app-emc1.vercel.app", "http://localhost:3000"],
   credentials: true
 }));
 app.use(express.json());
