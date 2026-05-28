@@ -115,6 +115,7 @@ export default function ProfilePage() {
     }
     const newVal = !notifEnabled;
     setNotifEnabled(newVal);
+    if (!user) return;
     await axiosInstance.patch(`/user/notifications/${user.email}`, {
       notificationsEnabled: newVal,
     });
