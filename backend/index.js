@@ -12,7 +12,10 @@ import fs from "fs";
 
 dotenv.config();
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ["https://twiller-app.vercel.app/", "http://localhost:3000"],
+  credentials: true
+}));
 app.use(express.json());
 
 const port = process.env.PORT || 5000;
