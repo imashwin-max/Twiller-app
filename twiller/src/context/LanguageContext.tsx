@@ -52,7 +52,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // All language changes require OTP
     // French → email OTP, others → SMS OTP
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/send-language-otp`,
+      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'https://twiller-backend-uymi.onrender.com'}/send-language-otp`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
