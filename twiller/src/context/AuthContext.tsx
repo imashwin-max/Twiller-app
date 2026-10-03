@@ -178,10 +178,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ── Fetch and set user ──
   const fetchAndSetUser = async (email: string) => {
-    const res = await axiosInstance.get("/loggedinuser", { params: { email } });
-    if (res.data) {
-      setUser(res.data);
-      localStorage.setItem("twitter-user", JSON.stringify(res.data));
+    if (!email || typeof email !== "string" || email.trim() === "") return;
+    try {
+      const res = await axiosInstance.get("/loggedinuser", { params: { email } });
+      if (res.data) {
+        setUser(res.data);
+        localStorage.setItem("twitter-user", JSON.stringify(res.data));
+      }
+    } catch (err) {
+      console.log("fetchAndSetUser failed, keeping local session:", err);
     }
   };
 

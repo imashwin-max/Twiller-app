@@ -171,7 +171,9 @@ app.post("/register", async (req, res) => {
 app.get("/loggedinuser", async (req, res) => {
   try {
     const { email } = req.query;
-    if (!email) return res.status(400).send({ error: "Email required" });
+    if (!email || typeof email !== "string" || email.trim() === "") {
+      return res.status(200).send(null);
+    }
     
     if (!url) {
       const user = users.find(u => u.email === email);
@@ -179,9 +181,10 @@ app.get("/loggedinuser", async (req, res) => {
     }
 
     const user = await User.findOne({ email });
-    return res.status(200).send(user);
+    return res.status(200).send(user || null);
   } catch (error) {
-    return res.status(400).send({ error: error.message });
+    console.error("Error in /loggedinuser:", error.message);
+    return res.status(200).send(null);
   }
 });
 
