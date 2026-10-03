@@ -6,7 +6,8 @@ import LoadingSpinner from "./loading-spinner";
 import TweetCard from "./TweetCard";
 import TweetComposer from "./TweetComposer";
 import axiosInstance from "@/lib/axiosInstance";
-import { Sparkles, Users } from "lucide-react";
+import { Sparkles, Users, RefreshCw } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface Tweet {
   id: string;
@@ -90,50 +91,87 @@ const initialTweets: Tweet[] = [
 ];
 
 const Feed = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"foryou" | "following">("foryou");
-  const [tweets, setTweets] = useState<any[]>(initialTweets);
+  const [allTweets, setAllTweets] = useState<any[]>(initialTweets);
+  const [followingTweets, setFollowingTweets] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchTweets = async () => {
+  // Function 1: Dedicated Handler for "For You" Button
+  const handleForYouClick = async () => {
+    setActiveTab("foryou");
     try {
       setLoading(true);
       const res = await axiosInstance.get("/post");
       if (Array.isArray(res.data) && res.data.length > 0) {
-        setTweets(res.data);
+        setAllTweets(res.data);
       }
     } catch (error) {
-      console.log("Backend fetch failed, showing local feed:", error);
+      console.log("For You feed fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function 2: Dedicated Handler for "Following" Button
+  const handleFollowingClick = async () => {
+    setActiveTab("following");
+    try {
+      setLoading(true);
+      const res = await axiosInstance.get("/post");
+      const posts = Array.isArray(res.data) && res.data.length > 0 ? res.data : initialTweets;
+      // Filter for posts from accounts followed or verified creators
+      const filtered = posts.filter((tweet: any) => {
+        const authorObj = tweet.author || {};
+        return (
+          authorObj.verified ||
+          tweet.liked ||
+          (user && (authorObj._id === user._id || authorObj.email === user.email))
+        );
+      });
+      setFollowingTweets(filtered);
+    } catch (error) {
+      console.log("Following feed fetch error:", error);
+      setFollowingTweets([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTweets();
+    handleForYouClick();
   }, []);
 
   const handleNewTweet = (newTweet: any) => {
-    setTweets((prev: any) => [newTweet, ...prev]);
+    setAllTweets((prev: any) => [newTweet, ...prev]);
+    if (activeTab === "following") {
+      setFollowingTweets((prev: any) => [newTweet, ...prev]);
+    }
   };
 
-  // Filter tweets for "Following" vs "For you"
-  const displayedTweets =
-    activeTab === "following"
-      ? tweets.filter((t: any) => t.author?.verified || t.liked)
-      : tweets;
+  const displayedTweets = activeTab === "foryou" ? allTweets : followingTweets;
 
   return (
     <div className="min-h-screen bg-black text-white pb-20">
-      {/* Sticky Top Bar & Dual Button Header */}
+      {/* Sticky Top Header & Dual Buttons */}
       <div className="sticky top-0 bg-black/85 backdrop-blur-md border-b border-gray-800/80 z-20">
-        <div className="px-4 pt-3 pb-1">
+        <div className="px-4 pt-3 pb-1 flex items-center justify-between">
           <h1 className="text-xl font-bold text-white tracking-tight">Home</h1>
+          <button
+            onClick={activeTab === "foryou" ? handleForYouClick : handleFollowingClick}
+            className="p-1.5 rounded-full hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+            title="Refresh feed"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-blue-400" : ""}`} />
+          </button>
         </div>
 
-        {/* Dual Tab Buttons: For You & Following */}
+        {/* Dual Tab Buttons with Separate Click Handlers */}
         <div className="flex w-full border-b border-gray-800/80">
+          {/* Button 1: For You */}
           <button
-            onClick={() => setActiveTab("foryou")}
+            type="button"
+            onClick={handleForYouClick}
             className={`flex-1 py-3.5 text-center font-bold text-sm transition-all relative flex items-center justify-center space-x-2 ${
               activeTab === "foryou"
                 ? "text-white"
@@ -146,8 +184,10 @@ const Feed = () => {
             )}
           </button>
 
+          {/* Button 2: Following */}
           <button
-            onClick={() => setActiveTab("following")}
+            type="button"
+            onClick={handleFollowingClick}
             className={`flex-1 py-3.5 text-center font-bold text-sm transition-all relative flex items-center justify-center space-x-2 ${
               activeTab === "following"
                 ? "text-white"
@@ -167,12 +207,14 @@ const Feed = () => {
 
       {/* Tweet List Container */}
       <div className="divide-y divide-gray-800/60">
-        {loading && tweets.length === 0 ? (
+        {loading && displayedTweets.length === 0 ? (
           <Card className="bg-black border-none shadow-none">
             <CardContent className="py-16 text-center">
               <div className="text-gray-400 space-y-3">
                 <LoadingSpinner size="lg" className="mx-auto" />
-                <p className="text-sm font-medium">Loading posts...</p>
+                <p className="text-sm font-medium">
+                  {activeTab === "foryou" ? "Loading recommended posts..." : "Loading following feed..."}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -185,13 +227,19 @@ const Feed = () => {
             <CardContent className="py-16 text-center">
               <div className="max-w-md mx-auto space-y-3">
                 <div className="h-16 w-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto text-gray-500 border border-gray-800">
-                  <Users className="h-8 w-8" />
+                  {activeTab === "following" ? (
+                    <Users className="h-8 w-8" />
+                  ) : (
+                    <Sparkles className="h-8 w-8" />
+                  )}
                 </div>
                 <h3 className="text-xl font-bold text-white">
-                  Welcome to your Following feed!
+                  {activeTab === "following" ? "No posts from Following yet" : "No posts available"}
                 </h3>
                 <p className="text-gray-400 text-sm">
-                  When you follow creators and users, their latest posts will appear here.
+                  {activeTab === "following"
+                    ? "When you follow creators and users, their latest posts will appear here."
+                    : "Be the first to create a post!"}
                 </p>
               </div>
             </CardContent>
