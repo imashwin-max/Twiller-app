@@ -38,6 +38,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     displayName: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [receivedOtp, setReceivedOtp] = useState("");
 
   React.useEffect(() => {
     if (isOpen) {
@@ -89,8 +90,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  const [receivedOtp, setReceivedOtp] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
