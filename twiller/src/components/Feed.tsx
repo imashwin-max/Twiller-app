@@ -6,8 +6,10 @@ import LoadingSpinner from "./loading-spinner";
 import TweetCard from "./TweetCard";
 import TweetComposer from "./TweetComposer";
 import axiosInstance from "@/lib/axiosInstance";
-import { Sparkles, Users, RefreshCw } from "lucide-react";
+import { Sparkles, Users, RefreshCw, UserPlus, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Button } from "./ui/button";
 
 interface Tweet {
   id: string;
@@ -90,12 +92,49 @@ const initialTweets: Tweet[] = [
   },
 ];
 
+const suggestedUsers = [
+  {
+    displayName: "Elon Musk",
+    username: "elonmusk",
+    avatar: "https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=400",
+    verified: true,
+  },
+  {
+    displayName: "Sarah Johnson",
+    username: "sarahtech",
+    avatar: "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=400",
+    verified: false,
+  },
+  {
+    displayName: "Alex Chen",
+    username: "designguru",
+    avatar: "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=400",
+    verified: true,
+  },
+];
+
 const Feed = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"foryou" | "following">("foryou");
   const [allTweets, setAllTweets] = useState<any[]>(initialTweets);
   const [followingTweets, setFollowingTweets] = useState<any[]>([]);
+  const [followingList, setFollowingList] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Load following list from localStorage
+  const refreshFollowingList = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("twiller_following") || "[]");
+      setFollowingList(saved);
+      return saved;
+    } catch {
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    refreshFollowingList();
+  }, []);
 
   // Function 1: Dedicated Handler for "For You" Button
   const handleForYouClick = async () => {
@@ -116,19 +155,23 @@ const Feed = () => {
   // Function 2: Dedicated Handler for "Following" Button
   const handleFollowingClick = async () => {
     setActiveTab("following");
+    const followedUsernames = refreshFollowingList();
     try {
       setLoading(true);
       const res = await axiosInstance.get("/post");
       const posts = Array.isArray(res.data) && res.data.length > 0 ? res.data : initialTweets;
-      // Filter for posts from accounts followed or verified creators
+      
       const filtered = posts.filter((tweet: any) => {
-        const authorObj = tweet.author || {};
-        return (
-          authorObj.verified ||
-          tweet.liked ||
-          (user && (authorObj._id === user._id || authorObj.email === user.email))
-        );
+        const authorObj = typeof tweet.author === "object" ? tweet.author : {};
+        const authorUsername = authorObj.username || "";
+        const authorId = authorObj._id || authorObj.id;
+        const authorEmail = authorObj.email;
+
+        const isFollowed = followedUsernames.includes(authorUsername);
+        const isSelf = user && (user._id === authorId || user.email === authorEmail);
+        return isFollowed || isSelf;
       });
+
       setFollowingTweets(filtered);
     } catch (error) {
       console.log("Following feed fetch error:", error);
@@ -149,6 +192,18 @@ const Feed = () => {
     }
   };
 
+  const followSuggestedUser = (username: string) => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("twiller_following") || "[]");
+      if (!saved.includes(username)) {
+        const updated = [...saved, username];
+        localStorage.setItem("twiller_following", JSON.stringify(updated));
+        setFollowingList(updated);
+        handleFollowingClick();
+      }
+    } catch (err) {}
+  };
+
   const displayedTweets = activeTab === "foryou" ? allTweets : followingTweets;
 
   return (
@@ -166,9 +221,8 @@ const Feed = () => {
           </button>
         </div>
 
-        {/* Dual Tab Buttons with Separate Click Handlers */}
+        {/* Dual Tab Buttons */}
         <div className="flex w-full border-b border-gray-800/80">
-          {/* Button 1: For You */}
           <button
             type="button"
             onClick={handleForYouClick}
@@ -184,7 +238,6 @@ const Feed = () => {
             )}
           </button>
 
-          {/* Button 2: Following */}
           <button
             type="button"
             onClick={handleFollowingClick}
@@ -224,23 +277,46 @@ const Feed = () => {
           ))
         ) : (
           <Card className="bg-black border-none shadow-none">
-            <CardContent className="py-16 text-center">
-              <div className="max-w-md mx-auto space-y-3">
-                <div className="h-16 w-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto text-gray-500 border border-gray-800">
-                  {activeTab === "following" ? (
-                    <Users className="h-8 w-8" />
-                  ) : (
-                    <Sparkles className="h-8 w-8" />
-                  )}
+            <CardContent className="py-12 text-center">
+              <div className="max-w-md mx-auto space-y-4">
+                <div className="h-14 w-14 bg-gray-900 rounded-full flex items-center justify-center mx-auto text-blue-400 border border-gray-800">
+                  <Users className="h-7 w-7" />
                 </div>
                 <h3 className="text-xl font-bold text-white">
-                  {activeTab === "following" ? "No posts from Following yet" : "No posts available"}
+                  Welcome to your Following feed!
                 </h3>
                 <p className="text-gray-400 text-sm">
-                  {activeTab === "following"
-                    ? "When you follow creators and users, their latest posts will appear here."
-                    : "Be the first to create a post!"}
+                  Follow creators below to see their posts on your timeline:
                 </p>
+
+                {/* Who to follow suggestion card */}
+                <div className="space-y-3 pt-2 text-left">
+                  {suggestedUsers.map((su) => (
+                    <div key={su.username} className="flex items-center justify-between p-3 bg-gray-900/80 rounded-2xl border border-gray-800">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={su.avatar} />
+                          <AvatarFallback>{su.displayName[0]}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="flex items-center space-x-1">
+                            <span className="font-bold text-white text-sm">{su.displayName}</span>
+                            {su.verified && <CheckCircle2 className="h-3.5 w-3.5 text-blue-400" />}
+                          </div>
+                          <p className="text-gray-400 text-xs">@{su.username}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => followSuggestedUser(su.username)}
+                        className="bg-white text-black hover:bg-gray-200 font-bold rounded-full px-4 text-xs"
+                      >
+                        <UserPlus className="h-3.5 w-3.5 mr-1" />
+                        Follow
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>

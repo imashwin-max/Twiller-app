@@ -323,23 +323,32 @@ app.post("/like/:tweetid", async (req, res) => {
     const { userId } = req.body;
     
     if (!url) {
-      const tweet = tweets.find(t => t._id === req.params.tweetid);
+      const tweet = tweets.find(t => t._id === req.params.tweetid || t.id === req.params.tweetid);
       if (!tweet) return res.status(404).send({ error: "Tweet not found" });
       if (!tweet.likedBy) tweet.likedBy = [];
-      if (!tweet.likedBy.includes(userId)) {
+      const idx = tweet.likedBy.indexOf(userId);
+      if (idx === -1) {
         tweet.likes = (tweet.likes || 0) + 1;
         tweet.likedBy.push(userId);
-        saveMockData();
+      } else {
+        tweet.likes = Math.max(0, (tweet.likes || 1) - 1);
+        tweet.likedBy.splice(idx, 1);
       }
+      saveMockData();
       return res.send(tweet);
     }
 
     const tweet = await Tweet.findById(req.params.tweetid);
-    if (!tweet.likedBy.includes(userId)) {
+    if (!tweet) return res.status(404).send({ error: "Tweet not found" });
+    const idx = tweet.likedBy.indexOf(userId);
+    if (idx === -1) {
       tweet.likes += 1;
       tweet.likedBy.push(userId);
-      await tweet.save();
+    } else {
+      tweet.likes = Math.max(0, tweet.likes - 1);
+      tweet.likedBy.splice(idx, 1);
     }
+    await tweet.save();
     res.send(tweet);
   } catch (error) {
     return res.status(400).send({ error: error.message });
@@ -351,24 +360,69 @@ app.post("/retweet/:tweetid", async (req, res) => {
     const { userId } = req.body;
     
     if (!url) {
-      const tweet = tweets.find(t => t._id === req.params.tweetid);
+      const tweet = tweets.find(t => t._id === req.params.tweetid || t.id === req.params.tweetid);
       if (!tweet) return res.status(404).send({ error: "Tweet not found" });
       if (!tweet.retweetedBy) tweet.retweetedBy = [];
-      if (!tweet.retweetedBy.includes(userId)) {
+      const idx = tweet.retweetedBy.indexOf(userId);
+      if (idx === -1) {
         tweet.retweets = (tweet.retweets || 0) + 1;
         tweet.retweetedBy.push(userId);
-        saveMockData();
+      } else {
+        tweet.retweets = Math.max(0, (tweet.retweets || 1) - 1);
+        tweet.retweetedBy.splice(idx, 1);
       }
+      saveMockData();
       return res.send(tweet);
     }
 
     const tweet = await Tweet.findById(req.params.tweetid);
-    if (!tweet.retweetedBy.includes(userId)) {
+    if (!tweet) return res.status(404).send({ error: "Tweet not found" });
+    const idx = tweet.retweetedBy.indexOf(userId);
+    if (idx === -1) {
       tweet.retweets += 1;
       tweet.retweetedBy.push(userId);
-      await tweet.save();
+    } else {
+      tweet.retweets = Math.max(0, tweet.retweets - 1);
+      tweet.retweetedBy.splice(idx, 1);
     }
+    await tweet.save();
     res.send(tweet);
+  } catch (error) {
+    return res.status(400).send({ error: error.message });
+  }
+});
+
+app.post("/comment/:tweetid", async (req, res) => {
+  try {
+    const { author, content } = req.body;
+    if (!content || !content.trim()) {
+      return res.status(400).send({ error: "Comment content cannot be empty" });
+    }
+
+    const newComment = {
+      _id: generateId(),
+      author: author || { displayName: "User", username: "user", avatar: "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400" },
+      content: content.trim(),
+      timestamp: new Date().toISOString()
+    };
+
+    if (!url) {
+      const tweet = tweets.find(t => t._id === req.params.tweetid || t.id === req.params.tweetid);
+      if (!tweet) return res.status(404).send({ error: "Tweet not found" });
+      if (!tweet.replies) tweet.replies = [];
+      tweet.replies.push(newComment);
+      tweet.comments = (tweet.comments || 0) + 1;
+      saveMockData();
+      return res.status(200).send({ tweet, comment: newComment });
+    }
+
+    const tweet = await Tweet.findById(req.params.tweetid);
+    if (!tweet) return res.status(404).send({ error: "Tweet not found" });
+    if (!tweet.replies) tweet.replies = [];
+    tweet.replies.push(newComment);
+    tweet.comments += 1;
+    await tweet.save();
+    return res.status(200).send({ tweet, comment: newComment });
   } catch (error) {
     return res.status(400).send({ error: error.message });
   }
