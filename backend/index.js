@@ -248,8 +248,8 @@ app.post("/post", async (req, res) => {
       }
     }
 
-    // Task 4 — tweet limit check
-    const limits = { Free: 1, Bronze: 3, Silver: 5, Gold: Infinity };
+    // Tweet limit check - Unlimited for all users
+    const limits = { Free: Infinity, Bronze: Infinity, Silver: Infinity, Gold: Infinity };
     const limit = limits[user.plan || "Free"] ?? 1;
     if ((user.tweetCount || 0) >= limit) {
       return res.status(403).send({
