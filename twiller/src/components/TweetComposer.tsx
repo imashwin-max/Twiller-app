@@ -43,7 +43,13 @@ const TweetComposer = ({ onTweetPosted }: any) => {
       replies: [],
     };
 
-    // 1. Instantly display tweet in UI (0ms delay!)
+    // 1. Save to local posts cache so Profile page reflects post instantly
+    try {
+      const savedUserPosts = JSON.parse(localStorage.getItem("twiller_user_posts") || "[]");
+      localStorage.setItem("twiller_user_posts", JSON.stringify([newTweetObj, ...savedUserPosts]));
+    } catch {}
+
+    // 2. Instantly display tweet in UI (0ms delay!)
     onTweetPosted(newTweetObj);
     setContent("");
     setimageurl("");

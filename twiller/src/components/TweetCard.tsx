@@ -16,11 +16,15 @@ import {
   UserPlus,
   UserCheck,
   CheckCircle2,
+  Trash2,
+  Pin,
+  Bell,
+  Link as LinkIcon,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import axiosInstance from "@/lib/axiosInstance";
 
-export default function TweetCard({ tweet }: any) {
+export default function TweetCard({ tweet, onDeletePost }: { tweet: any; onDeletePost?: (id: string) => void }) {
   const { user } = useAuth();
   const [tweetstate, settweetstate] = useState(tweet);
   const [isLiked, setIsLiked] = useState(false);
@@ -29,18 +33,22 @@ export default function TweetCard({ tweet }: any) {
   const [retweetsCount, setRetweetsCount] = useState(tweet?.retweets || 0);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [replies, setReplies] = useState<any[]>(tweet?.replies || []);
   const [commentsCount, setCommentsCount] = useState(tweet?.comments || 0);
   const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [isNotifOn, setIsNotifOn] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [isDeleted, setIsDeleted] = useState(false);
 
   const authorObj = typeof tweetstate.author === "object" ? tweetstate.author : null;
   const authorId = authorObj?._id || authorObj?.id || tweetstate.author;
   const authorName = authorObj?.displayName || "Anonymous";
   const authorUsername = authorObj?.username || "user";
   const authorAvatar = authorObj?.avatar || "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400";
-  const isSelf = user && (user._id === authorId || user.email === authorObj?.email);
+  const isSelf = user ? (user._id === authorId || user.email === authorObj?.email || authorId === "user_me") : true;
 
   useEffect(() => {
     settweetstate(tweet);
@@ -73,6 +81,8 @@ export default function TweetCard({ tweet }: any) {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 2500);
   };
+
+  if (isDeleted) return null;
 
   // 1. LIKE / UNLIKE HANDLER
   const handleLike = async (e: React.MouseEvent) => {
@@ -178,7 +188,40 @@ export default function TweetCard({ tweet }: any) {
     }
   };
 
-  // 6. COMMENT / REPLY SUBMIT HANDLER
+  // 6. DELETE POST HANDLER
+  const handleDelete = async () => {
+    const tweetId = tweetstate._id || tweetstate.id;
+    setIsDeleted(true);
+    setShowOptionsModal(false);
+    showToast("Post deleted");
+
+    // Clean up local posts cache
+    try {
+      const localUserPosts = JSON.parse(localStorage.getItem("twiller_user_posts") || "[]");
+      const updated = localUserPosts.filter((t: any) => (t._id || t.id) !== tweetId);
+      localStorage.setItem("twiller_user_posts", JSON.stringify(updated));
+    } catch {}
+
+    // Clean up local bookmarks
+    try {
+      const savedBookmarks = JSON.parse(localStorage.getItem("twiller_bookmarks") || "[]");
+      const updatedBm = savedBookmarks.filter((b: any) => (b._id || b.id) !== tweetId);
+      localStorage.setItem("twiller_bookmarks", JSON.stringify(updatedBm));
+    } catch {}
+
+    if (onDeletePost) {
+      onDeletePost(tweetId);
+    }
+
+    // Call backend delete route asynchronously
+    try {
+      await axiosInstance.delete(`/post/${tweetId}`);
+    } catch (err) {
+      console.log("Backend post delete sync note:", err);
+    }
+  };
+
+  // 7. COMMENT / REPLY SUBMIT HANDLER
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
@@ -257,31 +300,46 @@ export default function TweetCard({ tweet }: any) {
                   </span>
                 </div>
 
-                {/* Follow Button for Other Users */}
-                {!isSelf && (
+                {/* Right Action Icons: Follow & More Options */}
+                <div className="flex items-center space-x-2">
+                  {!isSelf && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleFollowToggle}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                        isFollowingAuthor
+                          ? "bg-gray-800 text-gray-300 hover:bg-red-950 hover:text-red-400 border border-gray-700"
+                          : "bg-white text-black hover:bg-gray-200"
+                      }`}
+                    >
+                      {isFollowingAuthor ? (
+                        <span className="flex items-center space-x-1">
+                          <UserCheck className="h-3 w-3" />
+                          <span>Following</span>
+                        </span>
+                      ) : (
+                        <span className="flex items-center space-x-1">
+                          <UserPlus className="h-3 w-3" />
+                          <span>Follow</span>
+                        </span>
+                      )}
+                    </Button>
+                  )}
+
+                  {/* More Settings Menu Trigger */}
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleFollowToggle}
-                    className={`ml-2 px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                      isFollowingAuthor
-                        ? "bg-gray-800 text-gray-300 hover:bg-red-950 hover:text-red-400 border border-gray-700"
-                        : "bg-white text-black hover:bg-gray-200"
-                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowOptionsModal(true);
+                    }}
+                    className="p-1.5 rounded-full hover:bg-gray-800 text-gray-400 hover:text-white"
                   >
-                    {isFollowingAuthor ? (
-                      <span className="flex items-center space-x-1">
-                        <UserCheck className="h-3 w-3" />
-                        <span>Following</span>
-                      </span>
-                    ) : (
-                      <span className="flex items-center space-x-1">
-                        <UserPlus className="h-3 w-3" />
-                        <span>Follow</span>
-                      </span>
-                    )}
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
-                )}
+                </div>
               </div>
 
               {/* Tweet Content Text */}
@@ -386,6 +444,72 @@ export default function TweetCard({ tweet }: any) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Post Settings Options Modal */}
+      {showOptionsModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-black border border-gray-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-2 space-y-1">
+            <div className="flex items-center justify-between p-3 border-b border-gray-800">
+              <h3 className="font-bold text-white text-sm">Post Options</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowOptionsModal(false)}
+                className="p-1 rounded-full text-gray-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Option 1: Delete Post */}
+            <button
+              onClick={handleDelete}
+              className="w-full flex items-center space-x-3 p-3 text-red-500 hover:bg-red-950/40 rounded-xl font-bold text-sm transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Delete Post</span>
+            </button>
+
+            {/* Option 2: Pin to Profile */}
+            <button
+              onClick={() => {
+                setIsPinned(!isPinned);
+                setShowOptionsModal(false);
+                showToast(isPinned ? "Unpinned from profile" : "Pinned to your profile!");
+              }}
+              className="w-full flex items-center space-x-3 p-3 text-gray-200 hover:bg-gray-900 rounded-xl text-sm transition-colors"
+            >
+              <Pin className="h-4 w-4 text-blue-400" />
+              <span>{isPinned ? "Unpin from profile" : "Pin to your profile"}</span>
+            </button>
+
+            {/* Option 3: Post Notifications */}
+            <button
+              onClick={() => {
+                setIsNotifOn(!isNotifOn);
+                setShowOptionsModal(false);
+                showToast(isNotifOn ? "Notifications turned off for this post" : "Notifications turned on!");
+              }}
+              className="w-full flex items-center space-x-3 p-3 text-gray-200 hover:bg-gray-900 rounded-xl text-sm transition-colors"
+            >
+              <Bell className="h-4 w-4 text-yellow-400" />
+              <span>{isNotifOn ? "Turn off notifications" : "Turn on post notifications"}</span>
+            </button>
+
+            {/* Option 4: Copy Link */}
+            <button
+              onClick={(e) => {
+                handleShare(e);
+                setShowOptionsModal(false);
+              }}
+              className="w-full flex items-center space-x-3 p-3 text-gray-200 hover:bg-gray-900 rounded-xl text-sm transition-colors"
+            >
+              <LinkIcon className="h-4 w-4 text-gray-400" />
+              <span>Copy link to post</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Reply / Comment Modal */}
       {showCommentModal && (

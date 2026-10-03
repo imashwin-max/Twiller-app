@@ -58,10 +58,27 @@ export default function ProfilePage() {
   const fetchTweets = async () => {
     try {
       setLoading(true);
-      const res = await axiosInstance.get("/post");
-      if (Array.isArray(res.data)) {
-        setTweets(res.data);
-      }
+      let remoteTweets: any[] = [];
+      try {
+        const res = await axiosInstance.get("/post");
+        if (Array.isArray(res.data)) {
+          remoteTweets = res.data;
+        }
+      } catch {}
+
+      let localUserPosts: any[] = [];
+      try {
+        localUserPosts = JSON.parse(localStorage.getItem("twiller_user_posts") || "[]");
+      } catch {}
+
+      const combinedMap = new Map();
+      [...localUserPosts, ...remoteTweets].forEach((t: any) => {
+        const id = t._id || t.id;
+        if (id && !combinedMap.has(id)) {
+          combinedMap.set(id, t);
+        }
+      });
+      setTweets(Array.from(combinedMap.values()));
     } catch (error) {
       console.log("Failed to fetch tweets for profile:", error);
     } finally {
@@ -73,14 +90,31 @@ export default function ProfilePage() {
     fetchTweets();
   }, []);
 
+  const handleDeletePost = (deletedId: string) => {
+    setTweets((prev) => prev.filter((t) => (t._id || t.id) !== deletedId));
+    try {
+      const localUserPosts = JSON.parse(localStorage.getItem("twiller_user_posts") || "[]");
+      const updated = localUserPosts.filter((t: any) => (t._id || t.id) !== deletedId);
+      localStorage.setItem("twiller_user_posts", JSON.stringify(updated));
+    } catch {}
+  };
+
   if (!user) return null;
 
   // Filter tweets by current user
   const userTweets = Array.isArray(tweets)
     ? tweets.filter((tweet: any) => {
-        const authorId = typeof tweet.author === "object" ? tweet.author?._id : tweet.author;
-        const authorEmail = typeof tweet.author === "object" ? tweet.author?.email : null;
-        return authorId === user._id || (authorEmail && authorEmail === user.email);
+        const authorObj = typeof tweet.author === "object" ? tweet.author : {};
+        const authorId = authorObj._id || authorObj.id || tweet.author;
+        const authorEmail = authorObj.email;
+        const authorUsername = authorObj.username;
+
+        return (
+          authorId === user._id ||
+          (authorEmail && authorEmail === user.email) ||
+          (authorUsername && (authorUsername === user.username || authorUsername === user.email?.split('@')[0])) ||
+          authorId === "user_me"
+        );
       })
     : [];
 
@@ -301,7 +335,7 @@ export default function ProfilePage() {
               </div>
             ) : userTweets.length > 0 ? (
               userTweets.map((tweet: any) => (
-                <TweetCard key={tweet._id || tweet.id} tweet={tweet} />
+                <TweetCard key={tweet._id || tweet.id} tweet={tweet} onDeletePost={handleDeletePost} />
               ))
             ) : (
               <Card className="bg-black border-none shadow-none">

@@ -319,6 +319,25 @@ app.get("/post", async (req, res) => {
   }
 });
 
+app.delete("/post/:tweetid", async (req, res) => {
+  try {
+    const { tweetid } = req.params;
+    if (!url) {
+      const idx = tweets.findIndex(t => t._id === tweetid || t.id === tweetid);
+      if (idx !== -1) {
+        tweets.splice(idx, 1);
+        saveMockData();
+      }
+      return res.status(200).send({ message: "Tweet deleted" });
+    }
+
+    await Tweet.findByIdAndDelete(tweetid);
+    return res.status(200).send({ message: "Tweet deleted" });
+  } catch (error) {
+    return res.status(400).send({ error: error.message });
+  }
+});
+
 app.post("/like/:tweetid", async (req, res) => {
   try {
     const { userId } = req.body;
