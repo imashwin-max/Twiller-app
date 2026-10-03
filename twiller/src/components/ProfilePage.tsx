@@ -105,14 +105,19 @@ export default function ProfilePage() {
   const userTweets = Array.isArray(tweets)
     ? tweets.filter((tweet: any) => {
         const authorObj = typeof tweet.author === "object" ? tweet.author : {};
-        const authorId = authorObj._id || authorObj.id || tweet.author;
-        const authorEmail = authorObj.email;
-        const authorUsername = authorObj.username;
+        const authorId = authorObj._id || authorObj.id || (typeof tweet.author === "string" ? tweet.author : "");
+        const authorEmail = authorObj.email || "";
+        const authorUsername = authorObj.username || "";
+
+        const currentEmail = (user.email || "").toLowerCase();
+        const currentUsername = (user.username || currentEmail.split('@')[0] || "").toLowerCase();
+        const tweetEmail = (authorEmail || "").toLowerCase();
+        const tweetUsername = (authorUsername || "").toLowerCase();
 
         return (
-          authorId === user._id ||
-          (authorEmail && authorEmail === user.email) ||
-          (authorUsername && (authorUsername === user.username || authorUsername === user.email?.split('@')[0])) ||
+          (currentEmail && tweetEmail && currentEmail === tweetEmail) ||
+          (currentUsername && tweetUsername && currentUsername === tweetUsername) ||
+          (user._id && authorId && user._id === authorId) ||
           authorId === "user_me"
         );
       })

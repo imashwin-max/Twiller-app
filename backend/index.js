@@ -266,6 +266,7 @@ app.post("/post", async (req, res) => {
           _id: user._id,
           displayName: user.displayName,
           username: user.username,
+          email: user.email,
           avatar: user.avatar,
         },
         likes: 0,

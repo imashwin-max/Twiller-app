@@ -29,6 +29,7 @@ const TweetComposer = ({ onTweetPosted }: any) => {
         _id: user._id || "user_me",
         displayName: user.displayName || "You",
         username: user.username || user.email?.split("@")[0] || "user",
+        email: user.email || "",
         avatar: user.avatar || "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
         verified: true,
       },
