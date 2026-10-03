@@ -39,6 +39,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setErrors({});
+      setBlockedMessage("");
+      setRequiresOtp(false);
+      setShowForgotPassword(false);
+    }
+  }, [isOpen, initialMode]);
+
   if (!isOpen) return null;
 
   if (showForgotPassword) {

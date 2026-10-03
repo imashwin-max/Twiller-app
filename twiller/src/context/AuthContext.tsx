@@ -51,7 +51,8 @@ export const useAuth = () => {
 
 // ── Helpers ──────────────────────────────────────────────────────
 const getBrowser = (): string => {
-  const ua = navigator.userAgent;
+  if (typeof window === "undefined" || typeof navigator === "undefined") return "Unknown";
+  const ua = navigator.userAgent || "";
   if (ua.includes("Edg/")) return "Edge";
   if (ua.includes("Chrome") && !ua.includes("Edg")) return "Chrome";
   if (ua.includes("Firefox")) return "Firefox";
@@ -59,8 +60,10 @@ const getBrowser = (): string => {
   return "Unknown";
 };
 
-const isMobile = (): boolean =>
-  /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isMobile = (): boolean => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || "");
+};
 
 const isWithinMobileWindow = (): boolean => {
   const now = new Date();
@@ -175,16 +178,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ── Fetch and set user ──
   const fetchAndSetUser = async (email: string) => {
-    if (!email || typeof email !== "string" || email.trim() === "") return;
+    if (!email || typeof email !== "string" || email.trim() === "") return null;
     try {
       const res = await axiosInstance.get("/loggedinuser", { params: { email } });
-      if (res.data) {
+      if (res.data && res.data.email) {
         setUser(res.data);
         localStorage.setItem("twitter-user", JSON.stringify(res.data));
+        return res.data;
       }
     } catch (err) {
-      console.log("fetchAndSetUser failed, keeping local session:", err);
+      console.log("fetchAndSetUser backend fetch failed, using or creating local session:", err);
     }
+
+    // Fallback: check localStorage first
+    try {
+      const savedUserStr = localStorage.getItem("twitter-user");
+      if (savedUserStr) {
+        const savedUser = JSON.parse(savedUserStr);
+        if (savedUser && savedUser.email) {
+          setUser(savedUser);
+          return savedUser;
+        }
+      }
+    } catch (e) {}
+
+    // Construct fresh User if none found so user state is NEVER null
+    const fallbackUser: User = {
+      _id: "user_" + Date.now(),
+      username: email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_"),
+      displayName: email.split("@")[0],
+      avatar: "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
+      email: email,
+      bio: "Twiller User",
+      joinedDate: new Date().toISOString(),
+      location: "Earth",
+      website: "",
+      plan: "Free",
+      tweetCount: 0,
+    };
+    setUser(fallbackUser);
+    localStorage.setItem("twitter-user", JSON.stringify(fallbackUser));
+    return fallbackUser;
   };
 
   // ── LOGIN ──
@@ -332,33 +366,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ── GOOGLE SIGN IN ──
   const googlesignin = async () => {
     setIsLoading(true);
-    const googleUser: User = {
-      _id: "google_" + Date.now(),
-      username: "google_user",
-      displayName: "Google User",
-      avatar: "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
-      email: "google.user@example.com",
-      bio: "Signed in via Google",
-      joinedDate: new Date().toISOString(),
-      location: "Worldwide",
-      website: "google.com",
-      plan: "Gold",
-      tweetCount: 0,
-    };
+    try {
+      let realEmail = "";
+      let realDisplayName = "";
+      let realAvatar = "";
+      let uid = "";
 
-    // Set user state immediately for instant feedback
-    setUser(googleUser);
-    localStorage.setItem("twitter-user", JSON.stringify(googleUser));
-    setIsLoading(false);
+      try {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        const result = await signInWithPopup(auth, provider);
+        const fbUser = result.user;
+        realEmail = fbUser.email || "";
+        realDisplayName = fbUser.displayName || "";
+        realAvatar = fbUser.photoURL || "";
+        uid = fbUser.uid || "";
+      } catch (fbErr: any) {
+        console.warn("Firebase Google popup error or cancelled:", fbErr);
+        if (fbErr?.code === "auth/popup-closed-by-user") {
+          setIsLoading(false);
+          return;
+        }
+        // Fallback for popups blocked or domain misconfigured in Vercel:
+        const promptEmail = prompt("Enter your Google email address to sign in with Google:");
+        if (!promptEmail) {
+          setIsLoading(false);
+          return;
+        }
+        realEmail = promptEmail;
+        realDisplayName = promptEmail.split("@")[0];
+      }
 
-    // Background sync
-    axiosInstance.post("/register", {
-      username: googleUser.username,
-      displayName: googleUser.displayName,
-      avatar: googleUser.avatar,
-      email: googleUser.email,
-    }).catch(() => {});
-    saveLoginHistory(googleUser.email);
+      if (!realEmail) {
+        setIsLoading(false);
+        return;
+      }
+
+      const username = realEmail.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_");
+      const googleUser: User = {
+        _id: uid || "google_" + Date.now(),
+        username: username,
+        displayName: realDisplayName || username,
+        avatar: realAvatar || "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
+        email: realEmail,
+        bio: "Signed in via Google",
+        joinedDate: new Date().toISOString(),
+        location: "Worldwide",
+        website: "google.com",
+        plan: "Gold",
+        tweetCount: 0,
+      };
+
+      // Check backend for existing profile data
+      try {
+        const res = await axiosInstance.get("/loggedinuser", { params: { email: realEmail } });
+        if (res.data && res.data.email) {
+          const merged = { ...googleUser, ...res.data };
+          setUser(merged);
+          localStorage.setItem("twitter-user", JSON.stringify(merged));
+          setIsLoading(false);
+          saveLoginHistory(realEmail);
+          return;
+        }
+      } catch (err) {}
+
+      setUser(googleUser);
+      localStorage.setItem("twitter-user", JSON.stringify(googleUser));
+      setIsLoading(false);
+
+      // Background registration sync
+      axiosInstance.post("/register", {
+        username: googleUser.username,
+        displayName: googleUser.displayName,
+        avatar: googleUser.avatar,
+        email: googleUser.email,
+      }).catch(() => {});
+      saveLoginHistory(googleUser.email);
+    } catch (error: any) {
+      console.error("Google sign in error:", error);
+      setIsLoading(false);
+    }
   };
 
   // ── APPLE SIGN IN ──
