@@ -16,10 +16,12 @@ const TweetComposer = ({ onTweetPosted }: any) => {
   const [imageurl, setimageurl] = useState("");
   const [showAudioModal, setShowAudioModal] = useState(false);
   const maxLength = 200;
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = (e: any) => {
     e.preventDefault();
     if (!user || !content.trim()) return;
-    setIsLoading(true);
+
+    const currentContent = content.trim();
+    const currentImage = imageurl;
 
     const newTweetObj = {
       _id: "post_" + Date.now(),
@@ -30,8 +32,8 @@ const TweetComposer = ({ onTweetPosted }: any) => {
         avatar: user.avatar || "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
         verified: true,
       },
-      content: content.trim(),
-      image: imageurl,
+      content: currentContent,
+      image: currentImage,
       timestamp: new Date().toISOString(),
       likes: 0,
       retweets: 0,
@@ -41,43 +43,36 @@ const TweetComposer = ({ onTweetPosted }: any) => {
       replies: [],
     };
 
-    try {
-      const tweetdata = {
-        author: user?._id || user?.email,
-        content: content.trim(),
-        image: imageurl,
-      };
-      const res = await axiosInstance.post("/post", tweetdata);
-      if (res.data) {
-        onTweetPosted(res.data);
-      } else {
-        onTweetPosted(newTweetObj);
-      }
-    } catch (error: any) {
-      console.log("Backend post request failed, using instant local post:", error);
-      onTweetPosted(newTweetObj);
-    } finally {
-      // ✅ Keyword notification trigger
-      const KEYWORDS = ["cricket", "science"];
-      const hasKeyword = KEYWORDS.some((kw) =>
-        content.toLowerCase().includes(kw)
-      );
-      if (
-        hasKeyword &&
-        user.notificationsEnabled &&
-        "Notification" in window &&
-        Notification.permission === "granted"
-      ) {
-        new Notification("🔔 Trending tweet alert!", {
-          body: content,
-          icon: "/favicon.ico",
-        });
-      }
+    // 1. Instantly display tweet in UI (0ms delay!)
+    onTweetPosted(newTweetObj);
+    setContent("");
+    setimageurl("");
 
-      setContent("");
-      setimageurl("");
-      setIsLoading(false);
+    // 2. Keyword notification trigger
+    const KEYWORDS = ["cricket", "science"];
+    const hasKeyword = KEYWORDS.some((kw) =>
+      currentContent.toLowerCase().includes(kw)
+    );
+    if (
+      hasKeyword &&
+      user.notificationsEnabled &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
+      new Notification("🔔 Trending tweet alert!", {
+        body: currentContent,
+        icon: "/favicon.ico",
+      });
     }
+
+    // 3. Sync to backend asynchronously in background
+    axiosInstance.post("/post", {
+      author: user?._id || user?.email,
+      content: currentContent,
+      image: currentImage,
+    }).catch((err) => {
+      console.log("Background tweet post sync note:", err?.message);
+    });
   };
 
   const characterCount = content.length;

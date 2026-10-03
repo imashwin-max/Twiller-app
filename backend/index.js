@@ -1,3 +1,4 @@
+
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -174,7 +175,7 @@ app.get("/loggedinuser", async (req, res) => {
     if (!email || typeof email !== "string" || email.trim() === "") {
       return res.status(200).send(null);
     }
-    
+
     if (!url) {
       const user = users.find(u => u.email === email);
       return res.status(200).send(user || null);
@@ -191,7 +192,7 @@ app.get("/loggedinuser", async (req, res) => {
 app.patch("/userupdate/:email", async (req, res) => {
   try {
     const { email } = req.params;
-    
+
     if (!url) {
       const index = users.findIndex(u => u.email === email);
       if (index !== -1) {
@@ -248,8 +249,8 @@ app.post("/post", async (req, res) => {
       }
     }
 
-    // Tweet limit check - Unlimited for all users
-    const limits = { Free: Infinity, Bronze: Infinity, Silver: Infinity, Gold: Infinity };
+    // Task 4 — tweet limit check
+    const limits = { Free: 1, Bronze: 3, Silver: 5, Gold: Infinity };
     const limit = limits[user.plan || "Free"] ?? 1;
     if ((user.tweetCount || 0) >= limit) {
       return res.status(403).send({
@@ -275,7 +276,7 @@ app.post("/post", async (req, res) => {
         timestamp: new Date().toISOString()
       };
       tweets.push(tweet);
-      
+
       const userIndex = users.findIndex(u => u._id === user._id || u.email === user.email);
       if (userIndex !== -1) {
         users[userIndex].tweetCount = (users[userIndex].tweetCount || 0) + 1;
@@ -321,34 +322,25 @@ app.get("/post", async (req, res) => {
 app.post("/like/:tweetid", async (req, res) => {
   try {
     const { userId } = req.body;
-    
+
     if (!url) {
-      const tweet = tweets.find(t => t._id === req.params.tweetid || t.id === req.params.tweetid);
+      const tweet = tweets.find(t => t._id === req.params.tweetid);
       if (!tweet) return res.status(404).send({ error: "Tweet not found" });
       if (!tweet.likedBy) tweet.likedBy = [];
-      const idx = tweet.likedBy.indexOf(userId);
-      if (idx === -1) {
+      if (!tweet.likedBy.includes(userId)) {
         tweet.likes = (tweet.likes || 0) + 1;
         tweet.likedBy.push(userId);
-      } else {
-        tweet.likes = Math.max(0, (tweet.likes || 1) - 1);
-        tweet.likedBy.splice(idx, 1);
+        saveMockData();
       }
-      saveMockData();
       return res.send(tweet);
     }
 
     const tweet = await Tweet.findById(req.params.tweetid);
-    if (!tweet) return res.status(404).send({ error: "Tweet not found" });
-    const idx = tweet.likedBy.indexOf(userId);
-    if (idx === -1) {
+    if (!tweet.likedBy.includes(userId)) {
       tweet.likes += 1;
       tweet.likedBy.push(userId);
-    } else {
-      tweet.likes = Math.max(0, tweet.likes - 1);
-      tweet.likedBy.splice(idx, 1);
+      await tweet.save();
     }
-    await tweet.save();
     res.send(tweet);
   } catch (error) {
     return res.status(400).send({ error: error.message });
@@ -358,71 +350,26 @@ app.post("/like/:tweetid", async (req, res) => {
 app.post("/retweet/:tweetid", async (req, res) => {
   try {
     const { userId } = req.body;
-    
+
     if (!url) {
-      const tweet = tweets.find(t => t._id === req.params.tweetid || t.id === req.params.tweetid);
+      const tweet = tweets.find(t => t._id === req.params.tweetid);
       if (!tweet) return res.status(404).send({ error: "Tweet not found" });
       if (!tweet.retweetedBy) tweet.retweetedBy = [];
-      const idx = tweet.retweetedBy.indexOf(userId);
-      if (idx === -1) {
+      if (!tweet.retweetedBy.includes(userId)) {
         tweet.retweets = (tweet.retweets || 0) + 1;
         tweet.retweetedBy.push(userId);
-      } else {
-        tweet.retweets = Math.max(0, (tweet.retweets || 1) - 1);
-        tweet.retweetedBy.splice(idx, 1);
+        saveMockData();
       }
-      saveMockData();
       return res.send(tweet);
     }
 
     const tweet = await Tweet.findById(req.params.tweetid);
-    if (!tweet) return res.status(404).send({ error: "Tweet not found" });
-    const idx = tweet.retweetedBy.indexOf(userId);
-    if (idx === -1) {
+    if (!tweet.retweetedBy.includes(userId)) {
       tweet.retweets += 1;
       tweet.retweetedBy.push(userId);
-    } else {
-      tweet.retweets = Math.max(0, tweet.retweets - 1);
-      tweet.retweetedBy.splice(idx, 1);
+      await tweet.save();
     }
-    await tweet.save();
     res.send(tweet);
-  } catch (error) {
-    return res.status(400).send({ error: error.message });
-  }
-});
-
-app.post("/comment/:tweetid", async (req, res) => {
-  try {
-    const { author, content } = req.body;
-    if (!content || !content.trim()) {
-      return res.status(400).send({ error: "Comment content cannot be empty" });
-    }
-
-    const newComment = {
-      _id: generateId(),
-      author: author || { displayName: "User", username: "user", avatar: "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400" },
-      content: content.trim(),
-      timestamp: new Date().toISOString()
-    };
-
-    if (!url) {
-      const tweet = tweets.find(t => t._id === req.params.tweetid || t.id === req.params.tweetid);
-      if (!tweet) return res.status(404).send({ error: "Tweet not found" });
-      if (!tweet.replies) tweet.replies = [];
-      tweet.replies.push(newComment);
-      tweet.comments = (tweet.comments || 0) + 1;
-      saveMockData();
-      return res.status(200).send({ tweet, comment: newComment });
-    }
-
-    const tweet = await Tweet.findById(req.params.tweetid);
-    if (!tweet) return res.status(404).send({ error: "Tweet not found" });
-    if (!tweet.replies) tweet.replies = [];
-    tweet.replies.push(newComment);
-    tweet.comments += 1;
-    await tweet.save();
-    return res.status(200).send({ tweet, comment: newComment });
   } catch (error) {
     return res.status(400).send({ error: error.message });
   }
@@ -461,7 +408,7 @@ app.post("/send-audio-otp", async (req, res) => {
     const { email } = req.body;
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     otpStore[email] = { otp, expires: Date.now() + 5 * 60 * 1000 };
-    
+
     await sendEmailHelper({
       to: email,
       subject: "Your Audio Tweet OTP - Twiller",
@@ -671,7 +618,7 @@ app.post("/verify-language-otp", async (req, res) => {
   if (Date.now() > record.expires) return res.status(400).send({ error: "OTP expired" });
   if (record.otp !== otp) return res.status(400).send({ error: "Invalid OTP" });
   delete otpStore[`lang_${email}`];
-  
+
   if (!url) {
     const index = users.findIndex(u => u.email === email);
     if (index !== -1) {
@@ -681,7 +628,7 @@ app.post("/verify-language-otp", async (req, res) => {
   } else {
     await User.findOneAndUpdate({ email }, { preferredLanguage: language });
   }
-  
+
   return res.status(200).send({ message: "Language updated" });
 });
 
@@ -691,13 +638,13 @@ app.post("/login-history/:email", async (req, res) => {
     const parser = new UAParser(req.headers["user-agent"]);
     const ua = parser.getResult();
     const entry = {
-      browser:   ua.browser.name || "Unknown",
-      os:        ua.os.name || "Unknown",
-      device:    ua.device.type || "desktop",
-      ip:        req.headers["x-forwarded-for"] || req.socket.remoteAddress || "Unknown",
+      browser: ua.browser.name || "Unknown",
+      os: ua.os.name || "Unknown",
+      device: ua.device.type || "desktop",
+      ip: req.headers["x-forwarded-for"] || req.socket.remoteAddress || "Unknown",
       timestamp: new Date(),
     };
-    
+
     if (!url) {
       const index = users.findIndex(u => u.email === req.params.email);
       if (index !== -1) {
@@ -715,7 +662,7 @@ app.post("/login-history/:email", async (req, res) => {
         { $push: { loginHistory: { $each: [entry], $slice: -20 } } }
       );
     }
-    
+
     return res.status(200).send({ entry });
   } catch (error) {
     return res.status(400).send({ error: error.message });
@@ -728,7 +675,7 @@ app.post("/send-login-otp", async (req, res) => {
     const { email } = req.body;
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     otpStore[`login_${email}`] = { otp, expires: Date.now() + 5 * 60 * 1000 };
-    
+
     await sendEmailHelper({
       to: email,
       subject: "Login Verification OTP - Twiller",
