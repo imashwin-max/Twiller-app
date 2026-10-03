@@ -228,6 +228,9 @@ export default function TweetCard({ tweet, onDeletePost }: { tweet: any; onDelet
 
     const newReply = {
       _id: "reply_" + Date.now(),
+      tweetId: tweetstate._id || tweetstate.id,
+      parentContent: tweetstate.content,
+      parentAuthor: authorName,
       author: {
         displayName: user?.displayName || "You",
         username: user?.username || "you",
@@ -242,6 +245,12 @@ export default function TweetCard({ tweet, onDeletePost }: { tweet: any; onDelet
     setCommentText("");
     showToast("Reply posted!");
 
+    // Persist to user replies in localStorage for Profile page
+    try {
+      const savedReplies = JSON.parse(localStorage.getItem("twiller_user_replies") || "[]");
+      localStorage.setItem("twiller_user_replies", JSON.stringify([newReply, ...savedReplies]));
+    } catch {}
+
     try {
       const tweetId = tweetstate._id || tweetstate.id;
       await axiosInstance.post(`/comment/${tweetId}`, {
@@ -251,6 +260,26 @@ export default function TweetCard({ tweet, onDeletePost }: { tweet: any; onDelet
     } catch (err) {
       console.log("Comment endpoint call failed, kept local comment:", err);
     }
+  };
+
+  const handlePinToggle = () => {
+    const tweetId = tweetstate._id || tweetstate.id;
+    try {
+      const savedHighlights = JSON.parse(localStorage.getItem("twiller_user_highlights") || "[]");
+      const exists = savedHighlights.some((h: any) => (h._id || h.id) === tweetId);
+      let updated;
+      if (exists) {
+        updated = savedHighlights.filter((h: any) => (h._id || h.id) !== tweetId);
+        setIsPinned(false);
+        showToast("Unpinned from profile");
+      } else {
+        updated = [tweetstate, ...savedHighlights];
+        setIsPinned(true);
+        showToast("Pinned to your profile!");
+      }
+      localStorage.setItem("twiller_user_highlights", JSON.stringify(updated));
+    } catch {}
+    setShowOptionsModal(false);
   };
 
   const formatNumber = (num: number) => {
@@ -472,11 +501,7 @@ export default function TweetCard({ tweet, onDeletePost }: { tweet: any; onDelet
 
             {/* Option 2: Pin to Profile */}
             <button
-              onClick={() => {
-                setIsPinned(!isPinned);
-                setShowOptionsModal(false);
-                showToast(isPinned ? "Unpinned from profile" : "Pinned to your profile!");
-              }}
+              onClick={handlePinToggle}
               className="w-full flex items-center space-x-3 p-3 text-gray-200 hover:bg-gray-900 rounded-xl text-sm transition-colors"
             >
               <Pin className="h-4 w-4 text-blue-400" />
