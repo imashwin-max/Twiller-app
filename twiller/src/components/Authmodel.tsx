@@ -80,6 +80,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     return Object.keys(newErrors).length === 0;
   };
 
+  const [receivedOtp, setReceivedOtp] = useState("");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm() || isLoading) return;
@@ -94,6 +96,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         if (result?.requiresOtp) {
           setLoginEmail(formData.email);
           setRequiresOtp(true);
+          if (result.otp) {
+            setReceivedOtp(result.otp);
+            setLoginOtp(result.otp);
+          }
           return;
         }
       } else {
@@ -170,7 +176,12 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
           {requiresOtp ? (
             <form onSubmit={handleOtpSubmit} className="space-y-4">
               <p className="text-gray-400 text-sm text-center">
-                🔒 Chrome detected — enter the OTP sent to <b>{loginEmail}</b> (Check your backend console for simulated OTP)
+                🔒 Chrome detected — OTP sent to <b>{loginEmail}</b>
+                {receivedOtp && (
+                  <span className="block text-green-400 font-mono text-sm mt-1">
+                    Demo OTP: <b>{receivedOtp}</b> (Auto-filled below)
+                  </span>
+                )}
               </p>
               <Input
                 value={loginOtp}

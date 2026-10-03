@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from "react";
+import axiosInstance from "@/lib/axiosInstance";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
@@ -51,15 +52,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const changeLanguage = async (lang: string, email: string) => {
     // All language changes require OTP
     // French → email OTP, others → SMS OTP
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'https://twiller-backend-uymi.onrender.com'}/send-language-otp`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, language: lang }),
-      }
-    );
-    if (!res.ok) throw new Error("Failed to send OTP");
+    await axiosInstance.post("/send-language-otp", { email, language: lang });
     return { requiresOtp: true };
   };
 

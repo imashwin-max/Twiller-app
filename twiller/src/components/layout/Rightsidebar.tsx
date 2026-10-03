@@ -34,7 +34,7 @@ const suggestions = [
   }
 ];
 
-export default function RightSidebar() {
+export default function RightSidebar({ onSubscribe }: { onSubscribe?: () => void }) {
   return (
     <div className="w-80 p-4 space-y-4">
       {/* Search */}
@@ -53,7 +53,10 @@ export default function RightSidebar() {
           <p className="text-gray-400 text-sm mb-4">
             Subscribe to unlock new features and if eligible, receive a share of revenue.
           </p>
-          <Button className="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-full">
+          <Button
+            onClick={onSubscribe}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-full"
+          >
             Subscribe
           </Button>
         </CardContent>

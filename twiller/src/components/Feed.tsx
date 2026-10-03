@@ -24,7 +24,7 @@ interface Tweet {
   retweeted?: boolean;
   image?: string;
 }
-const tweets: Tweet[] = [
+const initialTweets: Tweet[] = [
   {
     id: "1",
     author: {
@@ -37,7 +37,7 @@ const tweets: Tweet[] = [
     },
     content:
       "Just had an amazing conversation about the future of AI. The possibilities are endless!",
-    timestamp: "2h",
+    timestamp: new Date(Date.now() - 7200000).toISOString(),
     likes: 1247,
     retweets: 324,
     comments: 89,
@@ -56,7 +56,7 @@ const tweets: Tweet[] = [
     },
     content:
       "Working on some exciting new features for our app. Can't wait to share what we've been building! 🚀",
-    timestamp: "4h",
+    timestamp: new Date(Date.now() - 14400000).toISOString(),
     likes: 89,
     retweets: 23,
     comments: 12,
@@ -75,7 +75,7 @@ const tweets: Tweet[] = [
     },
     content:
       "The new design system is finally complete! It took 6 months but the results are incredible. Clean, consistent, and accessible.",
-    timestamp: "6h",
+    timestamp: new Date(Date.now() - 21600000).toISOString(),
     likes: 456,
     retweets: 78,
     comments: 34,
@@ -85,26 +85,33 @@ const tweets: Tweet[] = [
       "https://images.pexels.com/photos/196645/pexels-photo-196645.jpeg?auto=compress&cs=tinysrgb&w=800",
   },
 ];
+
 const Feed = () => {
-  const [tweets, setTweets] = useState<any>([]);
+  const [tweets, setTweets] = useState<any[]>(initialTweets);
   const [loading, setloading] = useState(false);
+
   const fetchTweets = async () => {
     try {
       setloading(true);
       const res = await axiosInstance.get("/post");
-      setTweets(res.data);
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        setTweets(res.data);
+      }
     } catch (error) {
-      console.error(error);
+      console.log("Backend fetch failed, showing local feed:", error);
     } finally {
       setloading(false);
     }
   };
+
   useEffect(() => {
     fetchTweets();
   }, []);
+
   const handlenewtweet = (newtweet: any) => {
     setTweets((prev: any) => [newtweet, ...prev]);
   };
+
   return (
     <div className="min-h-screen">
       <div className="sticky top-0 bg-black/90 backdrop-blur-md border-b border-gray-800 z-10">
@@ -131,7 +138,7 @@ const Feed = () => {
       </div>
       <TweetComposer onTweetPosted={handlenewtweet}/>
       <div className="divide-y divide-gray-800">
-        {loading ? (
+        {loading && tweets.length === 0 ? (
           <Card className="bg-black border-none">
             <CardContent className="py-12 text-center">
               <div className="text-gray-400 mb-4">
@@ -141,7 +148,9 @@ const Feed = () => {
             </CardContent>
           </Card>
         ) : (
-          tweets.map((tweet: any) => <TweetCard key={tweet._id} tweet={tweet} />)
+          tweets.map((tweet: any, index: number) => (
+            <TweetCard key={tweet._id || tweet.id || index} tweet={tweet} />
+          ))
         )}
       </div>
     </div>

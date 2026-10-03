@@ -19,9 +19,10 @@ const TweetComposer = ({ onTweetPosted }: any) => {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     if (!user || !content.trim()) return;
+    setIsLoading(true);
     try {
       const tweetdata = {
-        author: user?._id,
+        author: user?._id || user?.email,
         content,
         image: imageurl,
       };
@@ -47,8 +48,8 @@ const TweetComposer = ({ onTweetPosted }: any) => {
 
       setContent("");
       setimageurl("");
-    } catch (error) {
-      console.log(error);
+    } catch (error: any) {
+      alert(error.response?.data?.error || "Failed to post tweet. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -62,6 +63,11 @@ const TweetComposer = ({ onTweetPosted }: any) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setIsLoading(true);
     const image = e.target.files[0];
+    
+    // Instant local preview fallback
+    const localUrl = URL.createObjectURL(image);
+    setimageurl(localUrl);
+
     const formdataimg = new FormData();
     formdataimg.set("image", image);
     try {
@@ -69,33 +75,46 @@ const TweetComposer = ({ onTweetPosted }: any) => {
         "https://api.imgbb.com/1/upload?key=97f3fb960c3520d6a88d7e29679cf96f",
         formdataimg
       );
-      const url = res.data.data.display_url;
+      const url = res.data?.data?.display_url;
       if (url) {
         setimageurl(url);
       }
     } catch (error) {
-      console.log(error);
+      console.log("Imgbb upload failed, using local URL preview:", error);
     } finally {
       setIsLoading(false);
     }
   };
   return (
-    <Card className="bg-black border-gray-800 border-x-0 border-t-0 rounded-none">
+    <Card className="bg-black border-gray-800 border-x-0 border-t-0 rounded-none border-b">
       <CardContent className="p-4">
-        <div className="flex space-x-4">
-          <Avatar className="h-12 w-12">
+        <div className="flex space-x-3">
+          <Avatar className="h-11 w-11 border border-gray-700">
             <AvatarImage src={user.avatar} alt={user.displayName} />
-            <AvatarFallback>{user.displayName[0]}</AvatarFallback>
+            <AvatarFallback className="bg-blue-600 text-white font-bold">{user.displayName[0]}</AvatarFallback>
           </Avatar>
 
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <form onSubmit={handleSubmit}>
               <Textarea
-                placeholder="What's happening?"
+                placeholder="What is happening?!"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="bg-transparent border-none text-xl text-white placeholder-gray-500 resize-none min-h-[120px] focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="bg-transparent border-none text-xl text-white placeholder-gray-500 resize-none min-h-[100px] focus-visible:ring-0 focus-visible:ring-offset-0 p-0 font-normal"
               />
+
+              {imageurl && (
+                <div className="relative my-3 rounded-2xl overflow-hidden border border-gray-800 max-h-64 w-full group">
+                  <img src={imageurl} alt="Upload preview" className="w-full h-auto max-h-64 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setimageurl("")}
+                    className="absolute top-2 right-2 bg-black/80 hover:bg-black text-white rounded-full p-1.5 text-xs font-bold transition-all"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center space-x-4 text-blue-400">

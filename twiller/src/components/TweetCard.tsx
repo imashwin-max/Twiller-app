@@ -55,18 +55,20 @@ export default function TweetCard({ tweet }: any) {
         <div className="flex space-x-3">
           <Avatar className="h-12 w-12">
             <AvatarImage
-              src={tweetstate.author.avatar}
-              alt={tweetstate.author.displayName}
+              src={typeof tweetstate.author === "object" ? tweetstate.author?.avatar : ""}
+              alt={typeof tweetstate.author === "object" ? tweetstate.author?.displayName : "User"}
             />
-            <AvatarFallback>{tweetstate.author.displayName}</AvatarFallback>
+            <AvatarFallback>
+              {(typeof tweetstate.author === "object" ? tweetstate.author?.displayName?.[0] : "U") || "U"}
+            </AvatarFallback>
           </Avatar>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2 mb-2">
               <span className="font-bold text-white">
-                {tweetstate.author.displayName}
+                {typeof tweetstate.author === "object" ? tweetstate.author?.displayName : "Anonymous"}
               </span>
-              {tweetstate.author.verified && (
+              {typeof tweetstate.author === "object" && tweetstate.author?.verified && (
                 <div className="bg-blue-500 rounded-full p-0.5">
                   <svg
                     className="h-4 w-4 text-white fill-current"
@@ -77,15 +79,16 @@ export default function TweetCard({ tweet }: any) {
                 </div>
               )}
               <span className="text-gray-500">
-                @{tweetstate.author.username}
+                @{typeof tweetstate.author === "object" ? tweetstate.author?.username : "user"}
               </span>
               <span className="text-gray-500">·</span>
               <span className="text-gray-500">
-                {tweetstate.timestamp &&
-                  new Date(tweetstate.timestamp).toLocaleDateString("en-us", {
-                    month: "long",
-                    year: "numeric",
-                  })}
+                {tweetstate.timestamp && !isNaN(new Date(tweetstate.timestamp).getTime())
+                  ? new Date(tweetstate.timestamp).toLocaleDateString("en-us", {
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "Just now"}
               </span>
               <div className="ml-auto">
                 <Button
@@ -133,48 +136,48 @@ export default function TweetCard({ tweet }: any) {
               <Button
                 variant="ghost"
                 size="sm"
-                className={`flex items-center space-x-2 p-2 rounded-full hover:bg-green-900/20 group ${
+                className={`flex items-center space-x-2 p-2 rounded-full hover:bg-green-900/20 group transition-colors ${
                   isRetweet
                     ? "text-green-400"
                     : "text-gray-500 hover:text-green-400"
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  retweetTweet(tweetstate._id);
+                  retweetTweet(tweetstate._id || tweetstate.id);
                 }}
               >
                 <Repeat2
                   className={`h-5 w-5 ${
-                    tweet.retweeted
+                    isRetweet
                       ? "text-green-400"
                       : "group-hover:text-green-400"
                   }`}
                 />
-                <span className="text-sm">
-                  {formatNumber(tweetstate.retweets)}
+                <span className="text-xs font-semibold">
+                  {formatNumber(tweetstate.retweets || 0)}
                 </span>
               </Button>
 
               <Button
                 variant="ghost"
                 size="sm"
-                className={`flex items-center space-x-2 p-2 rounded-full hover:bg-red-900/20 group ${
+                className={`flex items-center space-x-2 p-2 rounded-full hover:bg-red-900/20 group transition-colors ${
                   isLiked ? "text-red-500" : "text-gray-500 hover:text-red-400"
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  likeTweet(tweetstate._id);
+                  likeTweet(tweetstate._id || tweetstate.id);
                 }}
               >
                 <Heart
                   className={`h-5 w-5 ${
-                    tweetstate.liked
-                      ? "text-red-500 fill-current"
+                    isLiked
+                      ? "text-red-500 fill-current scale-110"
                       : "group-hover:text-red-400"
                   }`}
                 />
-                <span className="text-sm">
-                  {formatNumber(tweetstate.likes)}
+                <span className="text-xs font-semibold">
+                  {formatNumber(tweetstate.likes || 0)}
                 </span>
               </Button>
 
